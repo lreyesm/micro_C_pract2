@@ -1,0 +1,18 @@
+-mcpu=cortex-m4
+-mthumb
+-mfloat-abi=soft
+-g3
+-gdwarf-2
+-gstrict-dwarf
+-I"D:/Projects/Microprogramacion_C/Pract2/Project_Headers"
+-I"D:/Projects/Microprogramacion_C/Pract2/Project_Settings/Startup_Code"
+-I"C:/Freescale/CW MCU v11.1/MCU/ARM_GCC_Support/ewl/EWL_C/include"
+-I"C:/Freescale/CW MCU v11.1/MCU/ARM_GCC_Support/ewl/EWL_Runtime/include"
+-O0
+-ffunction-sections
+-fdata-sections
+-Wall
+-c
+-fmessage-length=0
+-D__SEMIHOSTING
+-specs=ewl_c_hosted.specs

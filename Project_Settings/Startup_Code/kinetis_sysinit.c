@@ -37,10 +37,8 @@ void lptmr_clear_registers();
 void lptmr_interrupt();
 void lptmr_isr(void);
 void initPIT (void);
-void pit_interrupt_config (void);
-void pit_isr1(void);
-void pit_isr2(void);
-void isr_PIT2(void);
+extern void  pit_interrupt_config(void);
+extern void pit_isr1(void);
 
 /**
  **===========================================================================
@@ -331,10 +329,20 @@ void lptmr_isr(void)
 {
   LPTMR0_CSR|=LPTMR_CSR_TCF_MASK;  //Clear LPT Compare flag
   LPTMR_INTERRUPT=1;  //Set global variable
-  int_counter++;
+  seconds++;
+
+  if(seconds == 60) {
+    seconds = 0;
+    minutes++;
+    if(minutes == 60) {
+      minutes = 0;
+      hours++;
+    }
+  }
+
   // pasa_segundo = 1;
  // printf("\n\nIn LPT ISR!\n\n");
- // printf("Veces en interrupcion %d \n", int_counter);
+ // printf("Veces en interrupcion %d \n", seconds);
 }
 
  
@@ -348,59 +356,11 @@ void initPIT (void){
  
 }
 
-void pit_interrupt_config (void)
- {
-    // Enable the clock to the PIT module
-    SIM_SCGC6 |= SIM_SCGC6_PIT_MASK;
-    PIT_MCR = PIT_MCR_FRZ_MASK;
-    PIT_TCTRL0 = 0;
-    PIT_TCTRL1 = 0;
-    PIT_LDVAL0 = LDVAL_TRIGGER_1MS; // Trigger 1 ms
-    PIT_LDVAL1 = LDVAL_TRIGGER_250US; // Trigger 250 us
-    PIT_TFLG0 |= PIT_TFLG_TIF_MASK;
-    PIT_TFLG1 |= PIT_TFLG_TIF_MASK;
-    enable_irq(68);
-    enable_irq(69);
-    PIT_TCTRL0 = (PIT_TCTRL_TIE_MASK | PIT_TCTRL_TEN_MASK);
-    PIT_TCTRL1 = (PIT_TCTRL_TIE_MASK | PIT_TCTRL_TEN_MASK);
-}
-// Cada interrupci�n del PIT1 se activa y desactiva el PORTA.8 (250us/750us)
-void pit_isr1(void)
-{
-    volatile static unsigned char count = 0;
-    PIT_TFLG1 |= PIT_TFLG_TIF_MASK;
-    PIT_LDVAL1 = LDVAL_TRIGGER_250US; // 250uS
-
-    if (count < 1)
-    {
-    	GPIOA_PSOR |= (1ul << 8);
-    	count++;
-    }
-    else
-    {
-    	GPIOA_PCOR |= (1ul << 8);
-    	count++;
-		if (count >= 4)
-		{
-			count = 0;
-		}
-    }
-	printf("Interrupcion");
-}
 void pit_isr2(void){
 	printf("Interrupcion");
 }
 
 
 
- 
-
-void isr_PIT2(void)
-{
-	PIT_TFLG2 = 0x01;
-	
-	//Toggle blue LED on each interrupt
-	printf("Interrupcion PIT");
-}
 
 

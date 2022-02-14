@@ -2,7 +2,7 @@
   FILE    : kinetis_sysinit.h
   PURPOSE : system initialization header for Kinetis ARM architecture
   LANGUAGE: C
-  Copyright © 2012 Freescale semiConductor Inc. All Rights Reserved.
+  Copyright ï¿½ 2012 Freescale semiConductor Inc. All Rights Reserved.
 */
 #ifndef KINETIS_SYSINIT_H
 #define KINETIS_SYSINIT_H
@@ -34,7 +34,9 @@ void __init_hardware();
 void Default_Handler();
 
 short LPTMR_INTERRUPT =0;
-int int_counter = 0;
+int seconds = 0;
+int minutes = 0;
+int hours = 0;
 
 #ifdef __cplusplus
 }

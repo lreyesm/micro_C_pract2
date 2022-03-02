@@ -30,15 +30,25 @@ extern void __thumb_startup(void);
  **  User functions
  **===========================================================================
  */
-void enable_irq (int irq);
-void time_delay(unsigned int delay);
-void lptmr_time_counter();
-void lptmr_clear_registers();
-void lptmr_interrupt();
-void lptmr_isr(void);
-void initPIT (void);
-extern void  pit_interrupt_config(void);
-extern void pit_isr1(void);
+extern void   enable_irq           (int irq);
+extern void   time_delay           (unsigned int delay);
+extern void   lptmr_time_counter   ();
+extern void   lptmr_clear_registers();
+extern void   lptmr_interrupt      ();
+extern void   lptmr_isr            (void);
+extern void   initPIT              (void);
+extern void   pit_interrupt_config (void);
+extern void   pit_isr1             (void);
+
+/**
+ **===========================================================================
+ **  User variables
+ **===========================================================================
+ */
+extern int    hours;
+extern int    seconds;
+extern int    minutes;
+extern short  LPTMR_INTERRUPT;
 
 /**
  **===========================================================================
@@ -207,158 +217,6 @@ void (* const InterruptVector[])() __attribute__ ((section(".vectortable"))) = {
     Default_Handler,		
 };
 
-void enable_irq (int irq)
-{
-    int div;
-    
-    /* Make sure that the IRQ is an allowable number. Right now up to 91 is 
-     * used.
-     */
-    if (irq > 91)
-        printf("\nERR! Invalid IRQ value passed to enable irq function!\n");
-    
-    /* Determine which of the NVICISERs corresponds to the irq */
-    div = irq/32;
-    
-    switch (div)
-    {
-    	case 0x0:
-              NVICICPR0 |= 1 << (irq%32);
-              NVICISER0 |= 1 << (irq%32);
-              break;
-    	case 0x1:
-              NVICICPR1 |= 1 << (irq%32);
-              NVICISER1 |= 1 << (irq%32);
-              break;
-    	case 0x2:
-              NVICICPR2 |= 1 << (irq%32);
-              NVICISER2 |= 1 << (irq%32);
-              break;
-    }              
-}
-
-/*FUNCTION*-------------------------------------------------------------------
-*
-* Function Name    : time_delay 
-* Returned Value   :
-* Comments         : Wait until interrupt of timer occur
-*    
-*
-*END*----------------------------------------------------------------------*/
-void time_delay(unsigned int delay) 
-{
-	unsigned int u32Delay;
-	unsigned int u32Delay2;
-	unsigned int u32Delay3;
-   
-	for(u32Delay=0;u32Delay<delay;u32Delay++);
-	  for(u32Delay2=0;u32Delay2<16;u32Delay2++)
-		for(u32Delay3=0;u32Delay3<0x35551;u32Delay3++);
-}
-
-/*
- * Delay function using the LPTMR module
- */
-void lptmr_time_counter()
-{
-    int compare_value=1000;  //value must be less than 0xFFFF or 65535
-
-    //Enable Port clocks
-    SIM_SCGC5 |= SIM_SCGC5_PORTA_MASK | SIM_SCGC5_PORTB_MASK | SIM_SCGC5_PORTC_MASK | SIM_SCGC5_PORTD_MASK | SIM_SCGC5_PORTE_MASK;
-
-    /* Enable LPT Module */
-    SIM_SCGC5|=SIM_SCGC5_LPTIMER_MASK;
-
-    lptmr_clear_registers();
-
-    /* Configure LPTMR */
-    LPTMR0_CMR=LPTMR_CMR_COMPARE(compare_value);  //Set compare value
-    LPTMR0_PSR=LPTMR_PSR_PCS(0x1)|LPTMR_PSR_PBYP_MASK;  //Use LPO clock and bypass prescale
-
-    LPTMR0_CSR|=LPTMR_CSR_TEN_MASK; //Turn on LPTMR with default settings
-
-    //Wait for Timer Compare Flag to be set
-    while((LPTMR0_CSR & LPTMR_CSR_TCF_MASK)==0)
-    {
-      //This may not get proper counter data if the CNR is read at the same time it is incremented
-    // printf("Current value of counter register CNR is %d\n",LPTMR0_CNR);
-    }
-    
-    LPTMR0_CSR|=LPTMR_CSR_TCF_MASK; 
-  
-}
-
-void lptmr_clear_registers()
-{
-  LPTMR0_CSR=0x00;
-  LPTMR0_PSR=0x00;
-  LPTMR0_CMR=0x00;
-}
-
-/*
- * Timer will trigger interrupt 
- */
-void lptmr_interrupt()
-{
-  int compare_value=1000;  //value must be less than 0xFFFF
-
-  //Enable Port clocks
-  SIM_SCGC5 |= SIM_SCGC5_PORTA_MASK | SIM_SCGC5_PORTB_MASK | SIM_SCGC5_PORTC_MASK | SIM_SCGC5_PORTD_MASK | SIM_SCGC5_PORTE_MASK;
-
-  /* Enable LPT Module */
-  SIM_SCGC5|=SIM_SCGC5_LPTIMER_MASK;
-
-  LPTMR_INTERRUPT=0; //Clear global variable
-
-  //Reset LPTMR module
-  lptmr_clear_registers();
-
-  /* Enable LPT Interrupt in NVIC*/
-  enable_irq(85); //LPTMR Vector is 101. IRQ# is 101-16=85
-
-  /* Configure LPT */
-  LPTMR0_CMR=LPTMR_CMR_COMPARE(compare_value);  //Set compare value
-  LPTMR0_PSR=LPTMR_PSR_PCS(0x1)|LPTMR_PSR_PBYP_MASK;  //Use LPO clock and bypass prescale
-  LPTMR0_CSR=LPTMR_CSR_TIE_MASK;  //Enable LPT interrupt
-
-  LPTMR0_CSR|=LPTMR_CSR_TEN_MASK; //Turn on LPTMR and start counting
-
-}
-
-void lptmr_isr(void)
-{
-  LPTMR0_CSR|=LPTMR_CSR_TCF_MASK;  //Clear LPT Compare flag
-  LPTMR_INTERRUPT=1;  //Set global variable
-  seconds++;
-
-  if(seconds == 60) {
-    seconds = 0;
-    minutes++;
-    if(minutes == 60) {
-      minutes = 0;
-      hours++;
-    }
-  }
-
-  // pasa_segundo = 1;
- // printf("\n\nIn LPT ISR!\n\n");
- // printf("Veces en interrupcion %d \n", seconds);
-}
-
- 
-void initPIT (void){
-  // Configura el pin 8 del puerto A como GGIO
-  // Inicializa pin 8 de PORT A como GPIO para buzzer
-  PORT_PCR_REG(PORTA_BASE_PTR, 8) = PORT_PCR_MUX(1);
-  GPIOA_PDDR |= (1ul << 8);
-  // Ejemplo si F=20MHz (pulso 50ns), Configura PIT0 con 1ms y PIT1 con 250us
-  pit_interrupt_config();
- 
-}
-
-void pit_isr2(void){
-	printf("Interrupcion");
-}
 
 
 

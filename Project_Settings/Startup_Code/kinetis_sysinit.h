@@ -33,10 +33,6 @@ void __init_hardware();
 */
 void Default_Handler();
 
-short LPTMR_INTERRUPT =0;
-int seconds = 0;
-int minutes = 0;
-int hours = 0;
 
 #ifdef __cplusplus
 }

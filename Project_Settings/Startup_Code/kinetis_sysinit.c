@@ -39,6 +39,7 @@ extern void   lptmr_isr            (void);
 extern void   initPIT              (void);
 extern void   pit_interrupt_config (void);
 extern void   pit_isr1             (void);
+extern void   pwm_isr             (void);
 
 /**
  **===========================================================================
@@ -180,7 +181,7 @@ void (* const InterruptVector[])() __attribute__ ((section(".vectortable"))) = {
     Default_Handler,
     Default_Handler, //67
     pit_isr1, //68
-    pit_isr1, //69
+    pwm_isr, //69
     Default_Handler,
     Default_Handler,
     Default_Handler,

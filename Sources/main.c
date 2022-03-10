@@ -7,10 +7,19 @@
 #include "Driver_SLCD.h" 
 #include "string.h"
 #include "stdio.h"
+#include "constantes.h"
+
+
+#define TOP_VALUE 65535
+#define MAX_VOLTAGE_VALUE 10
+#define MAX_SAMPLES 128
+#define MAX_CHANNELS 4
 
 #define LDVAL_TRIGGER_1MS 20000
+#define FTM1_MOD_VALUE 24000
 
 void pit_isr1				(void);
+void pwm_isr				(void);
 void lptmr_isr				(void);
 void _PWM					(float);
 void initPWM				(void);
@@ -24,6 +33,7 @@ void pit_interrupt_config	(void);
 void printTimeInLCD			(void);
 
 
+short PIT_INTERRUPT =0;
 short LPTMR_INTERRUPT =0;
 int seconds = 0;
 int minutes = 0;
@@ -33,12 +43,14 @@ int counter_1ms = 0;
 int array_ms[100];
 
 
+//===================================================================
 int main(void)
 {
 	
+	
 	STRING str = "KAIXO";
 
-	printf("String %s\n", str);
+	printf("\nString %s\n", str);
 	
 	pit_interrupt_config ();
 
@@ -46,18 +58,20 @@ int main(void)
 	_SLCDModule_PrintString(str, 0);
 	
 
-
-	printf("\nBefore delay seconds: %d\n", seconds);
+	printf("\n\nBefore delay seconds: %d\n", seconds);
 	
 	lptmr_interrupt();
 	time_delay(3);
-	printf("After delay seconds: %d\n", seconds);
+	printf("\nAfter delay seconds: %d\n", seconds);
 	
 	_SLCDModule_ClearLCD(0);
 	
+	//initPWM();
 	for(;;) {	   
-		if(LPTMR_INTERRUPT == 1){
-			LPTMR_INTERRUPT = 0;		
+		if(PIT_INTERRUPT == 1){	
+			//_PWM(50);		
+			PIT_INTERRUPT = 0;
+			
 			array_ms[seconds] = counter_1ms;
 			printTimeInLCD();
 		}
@@ -84,6 +98,7 @@ void printTimeInLCD(){
 		sprintf(str_seconds, "%d", seconds);
 	}
 	else{
+
 		sprintf(str_seconds, "0%d", seconds);
 	}
 	if(minutes >= 10) {
@@ -110,11 +125,12 @@ void pit_isr1(void)
 	if(counter_1ms >= 999){
 		counter_1ms = 0;
 	}
+  	PIT_INTERRUPT=1;  //Set global variable
 }
 
 
 void pit_interrupt_config (void)
- {
+{
     // Enable the clock to the PIT module
     SIM_SCGC6 |= SIM_SCGC6_PIT_MASK;
     PIT_MCR = PIT_MCR_FRZ_MASK;
@@ -129,7 +145,7 @@ void pit_interrupt_config (void)
 
 
 void lptmr_isr(void)
-{
+{	
   	LPTMR0_CSR|=LPTMR_CSR_TCF_MASK;  //Clear LPT Compare flag
   	LPTMR_INTERRUPT=1;  //Set global variable
 	seconds++;
@@ -146,32 +162,6 @@ void initPIT (void){
 }
 
 
-void initPWM(){
-	//Habilitamos el clock al FTM1 (Flex Timer Module)
-	SIM_SCGC6 |= SIM_SCGC6_FTM1_MASK;
-	// Configuraci�n puerto PTA8 (buzzer) como salida:
-	PORTA_PCR8 = PORT_PCR_MUX(3) | PORT_PCR_DSE_MASK;
-	// Configuracion Timer
-	FTM1_MODE |= FTM_MODE_WPDIS_MASK;
-	FTM1_MODE &= ~1;
-	FTM1_QDCTRL &=~FTM_QDCTRL_QUADEN_MASK;
-	FTM1_CNT = 0x0;
-	//FTM1_MOD = FTM1_MOD_VALUE;
-	FTM1_CNTIN = 0;
-	FTM1_C0SC |= FTM_CnSC_ELSB_MASK;
-	FTM1_C0SC &= ~FTM_CnSC_ELSA_MASK;
-	FTM1_C0SC |= FTM_CnSC_MSB_MASK;
-	//FTM1_C0V = FTM1_MOD_VALUE;
-	FTM1_SC = FTM_SC_PS(0) | FTM_SC_CLKS(1);
-}
-
-
-void _PWM(float DutyCycle){
-	float D = DutyCycle*0.01;//D en tanto por 1
-	//Toff=(1-D)*T
-	//FTM1_C0V = (int) ((1.0-D) * (float)FTM1_MOD_VALUE);
-}
-
 
 void enable_irq (int irq)
 {
@@ -181,7 +171,7 @@ void enable_irq (int irq)
      * used.
      */
     if (irq > 91)
-        printf("\nERR! Invalid IRQ value passed to enable irq function!\n");
+        printf("\n\nERR! Invalid IRQ value passed to enable irq function!\n");
     
     /* Determine which of the NVICISERs corresponds to the irq */
     div = irq/32;
@@ -247,7 +237,7 @@ void lptmr_time_counter()
     while((LPTMR0_CSR & LPTMR_CSR_TCF_MASK)==0)
     {
       //This may not get proper counter data if the CNR is read at the same time it is incremented
-    // printf("Current value of counter register CNR is %d\n",LPTMR0_CNR);
+    // printf("\nCurrent value of counter register CNR is %d\n",LPTMR0_CNR);
     }
     
     LPTMR0_CSR|=LPTMR_CSR_TCF_MASK; 
@@ -289,4 +279,36 @@ void lptmr_interrupt()
   	LPTMR0_CSR=LPTMR_CSR_TIE_MASK;  //Enable LPT interrupt
 
   	LPTMR0_CSR|=LPTMR_CSR_TEN_MASK; //Turn on LPTMR and start counting
+}
+
+
+void initPWM(){
+	 //Habilitamos el clock al FTM1 (Flex Timer Module)
+	 SIM_SCGC6 |= SIM_SCGC6_FTM1_MASK;
+	 // Configuraci�n puerto PTA8 (buzzer) como salida:
+	 PORTA_PCR8 = PORT_PCR_MUX(3) | PORT_PCR_DSE_MASK;
+	 // Configuracion Timer
+	 FTM1_MODE |= FTM_MODE_WPDIS_MASK;
+	 FTM1_MODE &= ~1;
+	 FTM1_QDCTRL &=~FTM_QDCTRL_QUADEN_MASK;
+	 FTM1_CNT = 0x0;
+	 FTM1_MOD = FTM1_MOD_VALUE;
+	 FTM1_CNTIN = 0;
+	 FTM1_C0SC |= FTM_CnSC_ELSB_MASK;
+	 FTM1_C0SC &= ~FTM_CnSC_ELSA_MASK;
+	 FTM1_C0SC |= FTM_CnSC_MSB_MASK;
+	 FTM1_C0V = FTM1_MOD_VALUE;
+	 FTM1_SC = FTM_SC_PS(0) | FTM_SC_CLKS(1);
+}
+
+void pwm_isr(){
+	//PIT_TFLG0 |= PIT_TFLG_TIF_MASK;
+	//LPTMR0_CSR|=LPTMR_CSR_TCF_MASK;  //Clear LPT Compare flag
+}
+
+
+void _PWM(float DutyCycle){
+	float D = DutyCycle*0.01;//D en tanto por 1
+	//Toff=(1-D)*T
+	FTM1_C0V = (int) ((1.0-D) * (float)FTM1_MOD_VALUE);
 }
